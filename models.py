@@ -31,3 +31,19 @@ class ChargingSession:
     meter_readings: list [MeterReading] = field(default_factory=list)
     status: SessionStatus = SessionStatus.RUNNING
 
+
+@dataclass(frozen=True)
+class BillingInterval:
+    from_time: datetime
+    to_time: datetime
+    kwh: Decimal
+    rate_applied: Decimal
+    amount: Decimal
+
+@dataclass(frozen=True)
+class Invoice:
+    session_id: str
+    lines: list[BillingInterval]
+    session_fee: Decimal
+    readings_replaced: int
+    total: Decimal
