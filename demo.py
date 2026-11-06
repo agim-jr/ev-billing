@@ -13,7 +13,7 @@ SCENARIO = [
     ("S4 crosses 21:00 and 22:00", "C1", dt(20, 30), dt(22, 30), [(dt(20, 30), 0), (dt(21, 30), 3), (dt(22, 30), 6)]),
     ("S5 single reading", "C2", dt(13), dt(14), [(dt(13, 30), 5)]),
     ("S6 off-peak only", "C3", dt(2), dt(4), [(dt(2), 0),  (dt(4), 14)]),
-    ("S7 mid-peak only", "C1", dt(10), dt(12), [(dt(10), 0),  (dt(12), 22)])
+    ("S7 mid-peak only", "C1", dt(10), dt(12), [(dt(10), 0),  (dt(12), 22)]),
     ("S8 duplicate timestamps", "C2" , dt(17), dt(19), [(dt(17), 0), (dt(18), 3), (dt(18), 4), (dt(18), 5), (dt(19), 9)]),
 ]
 
@@ -28,12 +28,13 @@ def main():
             net.record_meter_reading(sid, at, kwh)
         net.stop_session(sid, stop)
         inv = net.calculate_invoice(sid)
-        print(f"\n=={label} {{sid} on {charger}} == ")
-        for l in inv.lines:
-            print(f" {l.from_time:%d %H:%M} -> {l.to_time:%d %H:%M} "
-            f"{line.kwh:>8} kWh @ ${line.rate_applied} =${line.amount}")")
-        print(f" session fee ${inv.session_fee} | replaced{inv.readings_replaced}"
-        f" | TOTAL ${inv.total}")
 
-    if__name__==__main__":
-        main()
+        print(f"\n== {label} {sid} on {charger} == ")
+        for line in inv.lines:
+            print(f" {line.from_time:%d %H:%M} -> {line.to_time:%d %H:%M} "
+                  f"{line.kwh:>8} kWh @ ${line.rate_applied} = ${line.amount}")
+        print(f" session fee ${inv.session_fee} | replaced {inv.readings_replaced}"
+              f" | TOTAL ${inv.total}")
+
+if __name__ == "__main__":
+    main()
