@@ -15,6 +15,14 @@ RATE_CHANGE_TIMES = [
     if rate != WINDOWS[i - 1][1] 
 ]
 
+def rate_at(at: datetime) -> Decimal:
+    """Return the tariff in effect at the given local datetime."""
+    for start, rate in reversed(WINDOWS):
+        if at.time() >= start:
+            return rate
+    return WINDOWS[-1][1]
+
+
 def split_at_rate_changes(start: datetime, end: datetime):
     """Split [start, end) at every rate-change boundary it crosses."""
     points = {start, end}

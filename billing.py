@@ -10,11 +10,11 @@ SESSION_FEE = Decimal("1.00")
 _MICROSECOND = timedelta(microseconds=1)
 
 def clean_readings(readings: list[MeterReading]):
-    """Dedupe by timestamp, sort, then drop rollbacks."""
+    """Dedupe by timestamp, sort, then drop rollbacks.
 
-    Returns (kept_readings, number_of_readings_replaced).
+    Returns the kept readings and the number of readings replaced.
     """
-    latest ={}
+    latest = {}
     replaced = 0
     for reading in readings:
         if reading.at in latest:
@@ -29,4 +29,20 @@ def clean_readings(readings: list[MeterReading]):
 
     return kept, replaced
 
-    def build_invoice()
+def build_invoice(session: ChargingSession) -> Invoice:
+    kept, replaced = clean_readings(session.meter_readings)
+    lines = []
+    for prev, nxt in zip(kept, kept[1:]):
+        total_us = (nxt.at - prev.at) // _MICROSECOND
+        delta_kwh = nxt.cumlative_kwh - prev.cumlative_kwh
+        for seg_start, seg_end in split_at_rate_changes(prev.at, nxt.at):
+            seg_us = (seg_end - seg_start) // _MICROSECOND
+            kwh = (delta_kwh * Decimal(seg_us) / Decimal(total_us)).quantize(
+                ENERGY_QUANT, rounding=ROUND_HALF_UP
+            )
+            rate = rate_at(seg_start)
+            amount = (kwh * rate).quantize(MONEY_QUANT, rounding=ROUND_HALF_UP)
+            lines.append(BillingInterval(seg_start, seg_end, kwh, rate, amount))
+
+    total = SESSION_FEE + sum((line.amount for line in lines), Decimal("0"))
+    return Invoice(session.session_id, lines, SESSION_FEE, replaced, total)
