@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from modesl import BillingError, SessionStatus
+from models import BillingError, SessionStatus
 from network import ChargingNetwork
 from tariff import rate_at
 
@@ -21,11 +21,11 @@ def run(net, start, stop, readings):
     for at, kwh in readings:
         net.record_meter_reading(side, at, kwh)
     net.stop_session(side, stop)
-    return net.calculate_invoice(sid)
+    return net.calculate_invoice(side)
 
 def test_example_1_splits_at_peak_boundary(net):
     inv = run(net, dt(15, 30), dt(16, 30), [(dt(15, 30), 0), (dt(16, 30), 40)])
-    assert [(li.kwh, li.rate_applied, li.amount) for li in inv.line_items] == [
+    assert [(li.kwh, li.rate_applied, li.amount) for li in inv.lines] == [
         (Decimal("20.000"), Decimal("0.28"), Decimal("5.60")),
         (Decimal("20.000"), Decimal("0.42"), Decimal("8.40")),
     ]
@@ -41,9 +41,9 @@ def test_example_2_rollback_judged_chronologically(net):
 def test_midnight_is_not_a_rate_change(net):
     inv =run(net, dt(21,30), dt(6, 30, day=3),
               [(dt(21, 30), 0), (dt(6, 30, day=3), 9)])
-    assert [1.rate_applied for 1 in inv.lines] == [
+    assert [l.rate_applied for l in inv.lines] == [
         Decimal("0.28"), Decimal("0.18"), Decimal("0.28")]
-    assert inv.total == Decimal("3.00")
+    assert inv.total == Decimal("2.72")
 
 def test_single_reading_bills_only_fee(net):
     inv = run(net, dt(10), dt(11), [(dt(10, 30), 5)])
@@ -51,9 +51,9 @@ def test_single_reading_bills_only_fee(net):
 
 def test_duplicate_timestamps_last_wins_and_counts_replacements(net):
     inv = run(net, dt(17), dt(19),
-              [(dt(17, 0), 3), (dt(18), 4), (dt(18), 5), (dt(19), 9)])
-    assert inv.readings_replaced ==2
-    assert [1.kwh for 1 in inv.lines] == [Decimal("5.000"), Decimal("4.000")]
+              [(dt(17, 0), 0), (dt(18), 4), (dt(18), 5), (dt(19), 9)])
+    assert inv.readings_replaced == 1
+    assert [l.kwh for l in inv.lines] == [Decimal("5.000"), Decimal("4.000")]
 
 def test_readings_at_1600_is_peak():
     assert rate_at(dt(16)) == Decimal("0.42")
@@ -63,7 +63,7 @@ def test_readings_at_1600_is_peak():
 def test_total_equals_sum_of_printed_lines(net):
     inv = run(net, dt(15, 47), dt(16, 13),
               [(dt(15,47), 0), (dt(16, 13), 7.777)])
-    assert inv.total == inv.session_fee + sum(1.amount for 1 in inv.lines)
+    assert inv.total == inv.session_fee + sum(l.amount for l in inv.lines)
 
 def test_reading_before_start_rejected(net):
     sid = net.start_session("d", "C1", dt(10))
@@ -82,10 +82,16 @@ def test_reading_after_stop_rejected_and_session_stays_open(net):
 def test_reading_after_stopped_rejected(net):
     sid = net.start_session("d", "C1", dt(10))
     net.stop_session(sid, dt(11))
-    withpytest.raises(BillingError):
-    net.record_meter_reading(sid, dt(10), 30), 1)
+    with pytest.raises(BillingError):
+       net.record_meter_reading(sid, dt(10, 30), 1)
 
 def test_invoice_on_running_session_rejected(net):
-    sid = net.start_Session("d", "C1", dt(10))
+    sid = net.start_session("d", "C1", dt(10))
     with pytest.raises(BillingError):
         net.calculate_invoice(sid)
+
+def test_three_readings_at_one_timestamp_count_two_replacements(net):
+    inv = run(net, dt(17), dt(19),
+              [(dt(17, 0), 0), (dt(18), 4), (dt(18), 5), (dt(18), 6), (dt(19), 9)])
+    assert inv.readings_replaced == 2
+    assert [l.kwh for l in inv.lines] == [Decimal("6.000"), Decimal("3.000")]
