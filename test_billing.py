@@ -25,7 +25,7 @@ def run(net, start, stop, readings):
 
 def test_example_1_splits_at_peak_boundary(net):
     inv = run(net, dt(15, 30), dt(16, 30), [(dt(15, 30), 0), (dt(16, 30), 40)])
-    assert [(1.kwh, 1.rate_applied, 1.amount) for 1 in inv.line_items] == [
+    assert [(li.kwh, li.rate_applied, li.amount) for li in inv.line_items] == [
         (Decimal("20.000"), Decimal("0.28"), Decimal("5.60")),
         (Decimal("20.000"), Decimal("0.42"), Decimal("8.40")),
     ]
